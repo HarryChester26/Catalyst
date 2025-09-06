@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -14,7 +14,7 @@ export default function RegisterPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (!name || !email || !password) {
+    if (!email || !password) {
       setError("Please fill all the informations.");
       return;
     }
@@ -24,23 +24,18 @@ export default function RegisterPage() {
     }
     try {
       setIsLoading(true);
-      const res = await fetch("/api/auth/sign-up", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const supabase = getSupabaseClient();
+      // Create auth user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) throw new Error(signUpError.message);
+
+      // Some projects require email confirmation; proceed to sign-in to create a session locally
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Registration failed");
-      // Optionally sign in immediately via API
-      const resSignIn = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!resSignIn.ok) {
-        router.push("/sigin-in");
-        return;
-      }
+      if (signInError) throw new Error(signInError.message);
+
       router.push("/");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Registration failed";
@@ -51,12 +46,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-xl border border-black/10 dark:border-white/15 p-6 bg-background text-foreground">
-        <h1 className="text-xl font-semibold mb-4">Sign up</h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-          Quick & Easy
-        </p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-700 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
+          <p className="text-gray-500">Sign up with email and password</p>
+        </div>
 
         {error ? (
           <div className="mb-4 text-sm text-red-600 dark:text-red-400">
@@ -66,42 +61,28 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm">Username</label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full h-10 px-3 rounded-md border border-black/10 dark:border-white/15 bg-transparent outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
-              placeholder="Harry Potter"
-              autoComplete="name"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm">Email</label>
+            <label htmlFor="email" className="text-sm font-medium text-gray-700">Email</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-10 px-3 rounded-md border border-black/10 dark:border-white/15 bg-transparent outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
-              placeholder=" "
+              className="w-full h-12 px-4 border rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              placeholder="you@example.com"
               autoComplete="email"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm">Password</label>
+            <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-10 px-3 rounded-md border border-black/10 dark:border-white/15 bg-transparent outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
-              placeholder=" "
+              className="w-full h-12 px-4 border rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              placeholder="••••••••"
               autoComplete="new-password"
               required
             />
@@ -110,14 +91,14 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-10 rounded-md bg-foreground text-background font-medium hover:opacity-90 disabled:opacity-60"
+            className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-60"
           >
-            {isLoading ? "Loading..." : "Sign up"}
+            {isLoading ? "Creating account..." : "Sign Up"}
           </button>
         </form>
 
-        <p className="mt-4 text-xs text-black/60 dark:text-white/60">
-          Already have an account? <a className="underline" href="/sigin-in">Đăng nhập</a>
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Already have an account? <a className="text-indigo-600 hover:underline" href="/signin">Sign in</a>
         </p>
       </div>
     </div>
