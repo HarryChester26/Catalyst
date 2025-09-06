@@ -1,12 +1,33 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, Route, User, LogIn, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setEmail(data.session?.user?.email ?? null);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
+      setEmail(session?.user?.email ?? null);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   const navItems = [
     { href: '/disruptions', label: 'Disruptions', icon: AlertCircle },
@@ -48,18 +69,50 @@ export default function Navigation() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <Link href="/signin">
-              <Button variant="outline" size="sm" className="flex items-center space-x-2">
-                <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">Sign In</span>
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="flex items-center space-x-2">
-                <UserPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">Sign Up</span>
-              </Button>
-            </Link>
+            {email ? (
+              <div className="relative">
+                <button
+                  onClick={() => setOpenMenu(v => !v)}
+                  className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu}
+                >
+                  {(email[0] || 'U').toUpperCase()}
+                </button>
+                {openMenu && (
+                  <div className="absolute right-0 mt-2 w-40 rounded-md border bg-white shadow-md z-50">
+                    <div className="px-3 py-2 text-xs text-gray-500 truncate">{email}</div>
+                    <button
+                      onClick={() => { setOpenMenu(false); router.push('/profile'); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={async () => { setOpenMenu(false); await getSupabaseClient().auth.signOut(); router.replace('/signin'); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link href="/signin">
+                  <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                    <LogIn className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign In</span>
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" className="flex items-center space-x-2">
+                    <UserPlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign Up</span>
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

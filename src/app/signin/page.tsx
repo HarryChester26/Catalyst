@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { FaGoogle, FaFacebookF } from "react-icons/fa";
 
 export default function SignInPage() {
@@ -10,15 +11,23 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
-    // TODO: Handle authentication
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const supabase = getSupabaseClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw new Error(signInError.message);
       router.push("/");
-    }, 1000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Sign in failed";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -36,6 +45,10 @@ export default function SignInPage() {
           <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
           <p className="text-gray-500">Sign in to continue your journey</p>
         </div>
+
+        {error ? (
+          <div className="mb-4 text-sm text-red-600">{error}</div>
+        ) : null}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
