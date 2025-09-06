@@ -27,6 +27,24 @@ export default function ChatWidget() {
     if (isLoading) return;
     const text = input.trim();
     if (!text) return;
+    // Extract a lightweight text snapshot of the current page as context
+    const extractPageText = (limit = 6000) => {
+      try {
+        const clone = document.body.cloneNode(true) as HTMLElement;
+        const remove = (sel: string) => clone.querySelectorAll(sel).forEach((el) => el.remove());
+        remove('script, style, noscript');
+        // Optionally strip common layout chrome
+        remove('header, footer, nav');
+        const txt = (clone as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+        return txt.slice(0, limit);
+      } catch {
+        return '';
+      }
+    };
+    const context = {
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      pageText: extractPageText(),
+    };
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -35,7 +53,7 @@ export default function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, context }),
       });
       const data = await res.json();
       if (!res.ok) {
