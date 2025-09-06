@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const systemHint = `You are a helpful website assistant. Answer in Vietnamese if the user's prompt is Vietnamese. Prioritize the provided page context. If the answer is not present in the context, say you don't know.`;
+    const systemHint = `You are a helpful website assistant. Answer in English if the user's prompt is English. Prioritize the provided page context.`;
 
     const pageBlock = context?.pageText ? `\n\n=== PAGE CONTEXT (truncated) ===\n${context.pageText}\n=== END CONTEXT ===` : '';
     const urlLine = context?.url ? `\nSource URL: ${context.url}` : '';
