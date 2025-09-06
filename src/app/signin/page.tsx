@@ -19,16 +19,16 @@ export default function SignInPage() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-    
+
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
       if (error) throw error;
-      
+
       refreshUser();
       router.push("/");
     } catch (error: any) {

@@ -8,12 +8,6 @@ import { Train, AlertCircle, Route, User, ArrowRight } from 'lucide-react';
 export default function HomePage() {
   const features = [
     {
-      icon: Train,
-      title: "Real-time Occupancy",
-      description: "Track tram occupancy levels in real-time to plan your journey better",
-      href: "/disruptions"
-    },
-    {
       icon: AlertCircle,
       title: "Service Disruptions",
       description: "Report and view current service disruptions affecting your route",
@@ -42,7 +36,7 @@ export default function HomePage() {
             Smart PT
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Your intelligent public transport companion. Get real-time updates, 
+            Your intelligent public transport companion. Get real-time updates,
             plan smarter trips, and help improve the transit experience for everyone.
           </p>
           <div className="flex gap-4 justify-center">
@@ -61,7 +55,7 @@ export default function HomePage() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
