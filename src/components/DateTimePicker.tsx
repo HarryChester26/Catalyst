@@ -42,18 +42,18 @@ export default function DateTimePicker({ value, onChange, className }: DateTimeP
   };
 
   return (
-    <div className={className}>
+    <div className={`${className} relative z-10`}>
       {!isCustom ? (
         <Select value={value} onValueChange={handleValueChange}>
-          <SelectTrigger>
+          <SelectTrigger className="bg-white border-2 border-gray-200 shadow-lg backdrop-blur-none">
             <SelectValue placeholder="When do you want to leave?" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="now">Leave Now</SelectItem>
-            <SelectItem value="15min">In 15 minutes</SelectItem>
-            <SelectItem value="30min">In 30 minutes</SelectItem>
-            <SelectItem value="1hour">In 1 hour</SelectItem>
-            <SelectItem value="custom">Custom Time</SelectItem>
+          <SelectContent className="bg-white border-2 border-gray-200 shadow-xl backdrop-blur-none z-50">
+            <SelectItem value="now" className="bg-white hover:bg-gray-50">Leave Now</SelectItem>
+            <SelectItem value="15min" className="bg-white hover:bg-gray-50">In 15 minutes</SelectItem>
+            <SelectItem value="30min" className="bg-white hover:bg-gray-50">In 30 minutes</SelectItem>
+            <SelectItem value="1hour" className="bg-white hover:bg-gray-50">In 1 hour</SelectItem>
+            <SelectItem value="custom" className="bg-white hover:bg-gray-50">Custom Time</SelectItem>
           </SelectContent>
         </Select>
       ) : (
@@ -62,6 +62,7 @@ export default function DateTimePicker({ value, onChange, className }: DateTimeP
           value={customDateTime || getCurrentDateTime()}
           onChange={(e) => handleCustomDateTimeChange(e.target.value)}
           min={getCurrentDateTime()}
+          className="bg-white border-2 border-gray-200 shadow-lg backdrop-blur-none"
         />
       )}
     </div>

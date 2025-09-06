@@ -42,7 +42,7 @@ export default function TripPlannerPage() {
 
   const getDepartureDateTime = (): Date | undefined => {
     const now = new Date();
-    
+
     switch (departureTime) {
       case "now":
         return now;
@@ -77,9 +77,9 @@ export default function TripPlannerPage() {
     try {
       const { DirectionsService } = await import("@/lib/google-maps/directions");
       const directionsService = new DirectionsService();
-      
+
       const departureDateTime = getDepartureDateTime();
-      
+
       const routeOptions: Partial<RouteOptionsType> = {
         departureTime: departureDateTime,
         travelMode: window.google?.maps?.TravelMode?.TRANSIT || 'TRANSIT' as any,
@@ -92,7 +92,7 @@ export default function TripPlannerPage() {
       );
 
       setRoutes(calculatedRoutes);
-      
+
       if (calculatedRoutes.length > 0) {
         setSelectedRoute(calculatedRoutes[0]);
       }
@@ -118,14 +118,14 @@ export default function TripPlannerPage() {
 
         <div className="grid gap-6">
           {/* Input Form */}
-          <Card>
+          <Card className="relative z-30 bg-white shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bus className="h-5 w-5" />
                 Plan Your Public Transport Trip
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">From</label>
@@ -144,7 +144,7 @@ export default function TripPlannerPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div className="relative z-20 bg-white rounded-lg p-2">
                   <label className="block text-sm font-medium mb-2">Departure Time</label>
                   <DateTimePicker
                     value={departureTime}
@@ -159,13 +159,15 @@ export default function TripPlannerPage() {
                 </div>
               )}
 
-              <Button
-                onClick={handlePlanTrip}
-                disabled={!fromPlace || !toPlace || isPlanning}
-                className="w-full"
-              >
-                {isPlanning ? "Finding public transport routes..." : "Find Public Transport Routes"}
-              </Button>
+              <div className="flex justify-center">
+                <Button
+                  onClick={handlePlanTrip}
+                  disabled={!fromPlace || !toPlace || isPlanning}
+                  className="w-64 bg-black hover:bg-gray-800 text-white border-2 border-black rounded-lg font-semibold transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPlanning ? "Finding public transport routes..." : "Find Public Transport Routes"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -209,7 +211,7 @@ export default function TripPlannerPage() {
                     <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
                     <h3 className="text-lg font-semibold mb-2 text-red-600">No Public Transport Routes Found</h3>
                     <p className="text-gray-600 mb-4">
-                      We couldn't find any public transport routes between these locations. 
+                      We couldn't find any public transport routes between these locations.
                       Try adjusting your departure time or check if the locations are accessible by public transport.
                     </p>
                     <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
