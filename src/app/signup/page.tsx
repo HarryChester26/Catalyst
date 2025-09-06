@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { useUser } from "@/contexts/UserContext";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { refreshUser } = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -34,9 +36,10 @@ export default function RegisterPage() {
         email,
         password,
       });
-      if (signInError) throw new Error(signInError.message);
+       if (signInError) throw new Error(signInError.message);
 
-      router.push("/");
+       refreshUser();
+       router.push("/");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Registration failed";
       setError(message);
