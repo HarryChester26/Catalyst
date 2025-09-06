@@ -29,6 +29,8 @@ export default function TripPlannerPage() {
   const [selectedRoute, setSelectedRoute] = useState<RouteResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [inspectorMarkers, setInspectorMarkers] = useState<google.maps.Marker[]>([]);
+  const [processedReports, setProcessedReports] = useState<Set<string>>(new Set());
 
     // Tự động lấy route khi đã chọn đủ fromPlace và toPlace
     useEffect(() => {
@@ -66,6 +68,84 @@ export default function TripPlannerPage() {
       };
       autoPlanTrip();
     }, [fromPlace, toPlace, departureTime]);
+
+  // Listen for inspector reports and show them on map
+  useEffect(() => {
+    const checkForInspectorReports = () => {
+      try {
+        const stored = localStorage.getItem('inspectorReports');
+        if (stored) {
+          const inspectorReports = JSON.parse(stored);
+          
+          // Check each report to see if it's new
+          inspectorReports.forEach((report: string) => {
+            if (!processedReports.has(report)) {
+              // Extract location from the report key (format: "route-location-timestamp")
+              const parts = report.split('-');
+              if (parts.length >= 2) {
+                const location = parts.slice(1, -1).join(' '); // Remove route and timestamp
+                showInspectorMarker(location);
+                setProcessedReports(prev => new Set([...prev, report]));
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error checking inspector reports:', error);
+      }
+    };
+
+    // Check for new inspector reports every 2 seconds
+    const interval = setInterval(checkForInspectorReports, 2000);
+    
+    // Also check immediately
+    checkForInspectorReports();
+
+    return () => clearInterval(interval);
+  }, [processedReports]);
+
+  const showInspectorMarker = async (location: string) => {
+    if (!window.google?.maps) return;
+
+    try {
+      // Geocode the location
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === window.google.maps.GeocoderStatus.OK && results && results[0]) {
+          const position = results[0].geometry.location;
+          
+          // Create red marker for inspector (without map initially)
+          const marker = new window.google.maps.Marker({
+            position: position,
+            title: `Inspector Nearby - ${location}`,
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" fill="#DC2626" stroke="white" stroke-width="2"/>
+                  <circle cx="12" cy="12" r="4" fill="white"/>
+                  <text x="12" y="16" text-anchor="middle" fill="#DC2626" font-size="8" font-weight="bold">!</text>
+                </svg>
+              `),
+              scaledSize: new window.google.maps.Size(24, 24),
+              anchor: new window.google.maps.Point(12, 12)
+            },
+            animation: window.google.maps.Animation.BOUNCE
+          });
+
+          // Add to markers array
+          setInspectorMarkers(prev => [...prev, marker]);
+
+          // Remove marker after 10 seconds
+          setTimeout(() => {
+            marker.setMap(null);
+            setInspectorMarkers(prev => prev.filter(m => m !== marker));
+          }, 10000);
+        }
+      });
+    } catch (error) {
+      console.error('Error showing inspector marker:', error);
+    }
+  };
 
   const handleFromPlaceSelect = (place: GeocodeResult) => {
     setFromPlace(place);
@@ -225,6 +305,7 @@ export default function TripPlannerPage() {
                     onRouteSelect={handleRouteSelect}
                     fromPlace={fromPlace}
                     toPlace={toPlace}
+                    inspectorMarkers={inspectorMarkers}
                   />
                 </div>
               </CardContent>

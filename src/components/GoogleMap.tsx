@@ -18,9 +18,10 @@ interface GoogleMapProps {
   selectedRoute?: RouteResult | null;
   fromPlace?: GeocodeResult | null;
   toPlace?: GeocodeResult | null;
+  inspectorMarkers?: google.maps.Marker[];
 }
 
-export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toPlace }: GoogleMapProps) {
+export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toPlace, inspectorMarkers = [] }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<google.maps.Map | null>(null);
   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -158,6 +159,15 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
       } as google.maps.DirectionsResult);
     }
   }, [selectedRoute, fromPlace, toPlace]);
+
+  // Handle inspector markers
+  useEffect(() => {
+    if (mapInstance.current && inspectorMarkers.length > 0) {
+      inspectorMarkers.forEach(marker => {
+        marker.setMap(mapInstance.current);
+      });
+    }
+  }, [inspectorMarkers]);
 
   return (
     <div className="w-full h-full">
