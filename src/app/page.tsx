@@ -172,7 +172,7 @@ export default function AppPage() {
             <div className="flex items-center gap-2">
               <Link href="/signin">
                 <Button variant="outline" size="sm">
-                  <LogIn className="w-full h-12 px-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <LogIn className="h-4 w-4 mr-2" />
                   Sign In
                 </Button>
               </Link>

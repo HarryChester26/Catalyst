@@ -1,71 +1,67 @@
-
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FaGoogle, FaFacebookF } from "react-icons/fa";
 
 export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-
-    if (!email || !password) {
-      setError("Please enter both email and password.");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const res = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to sign in, please try again.");
-      router.push("/");
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to sign in, please try again.";
-      setError(message);
-    } finally {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsLoading(true);
+    // TODO: Handle authentication
+    setTimeout(() => {
       setIsLoading(false);
-    }
+      router.push("/");
+    }, 1000);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-8">
-        <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Sign In</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-700 p-4">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="text-white text-4xl mb-2">📍</div>
+        <h1 className="text-white text-2xl font-bold">Transit Connect</h1>
+        <p className="text-indigo-100">Your journey starts here</p>
+      </div>
 
-        {error && (
-          <div className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</div>
-        )}
+      {/* Card */}
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+          <p className="text-gray-500">Sign in to continue your journey</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1">
-            <label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Email or Phone
             </label>
             <input
               id="email"
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder=" "
-              autoComplete="email"
+              placeholder="Enter your email or phone"
               required
-              className="peer w-full h-12 px-4 border rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              className="w-full h-12 px-4 border rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input
@@ -73,24 +69,58 @@ export default function SignInPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder=" "
-              autoComplete="current-password"
+              placeholder="Enter your password"
               required
-              className="w-full h-12 px-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              className="w-full h-12 px-4 border rounded-lg border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Remember me
+            </label>
+            <a href="#" className="text-indigo-600 hover:underline">
+              Forgot password?
+            </a>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
+            className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-60"
           >
             {isLoading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <p className="mt-6 text-sm text-gray-600 dark:text-gray-300">
-          Don't have an account yet?{" "}
+        {/* Divider */}
+        <div className="flex items-center my-6">
+          <div className="flex-grow border-t border-gray-300"></div>
+          <span className="mx-2 text-gray-400 text-sm">Or continue with</span>
+          <div className="flex-grow border-t border-gray-300"></div>
+        </div>
+
+        {/* Social buttons */}
+        <div className="flex gap-3">
+          <button className="flex-1 flex items-center justify-center gap-2 h-12 border rounded-lg hover:bg-gray-50 transition">
+            <FaGoogle className="text-red-500" />
+            Google
+          </button>
+          <button className="flex-1 flex items-center justify-center gap-2 h-12 border rounded-lg hover:bg-gray-50 transition">
+            <FaFacebookF className="text-blue-600" />
+            Facebook
+          </button>
+        </div>
+
+        {/* Sign up link */}
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Don&apos;t have an account?{" "}
           <a href="/signup" className="text-indigo-600 hover:underline">
             Sign up
           </a>
@@ -99,5 +129,4 @@ export default function SignInPage() {
     </div>
   );
 }
-
 
