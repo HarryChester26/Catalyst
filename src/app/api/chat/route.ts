@@ -1,43 +1,26 @@
 import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: Request) {
   try {
     const { prompt } = await req.json();
-    if (!prompt || typeof prompt !== "string") {
-      return NextResponse.json({ error: "Invalid prompt" }, { status: 400 });
+    if (!prompt) {
+      return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
     if (!apiKey) {
-      return NextResponse.json({ error: "Missing GOOGLE_GEMINI_API_KEY" }, { status: 500 });
+      return NextResponse.json({ error: "Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in env" }, { status: 500 });
     }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const model = process.env.GOOGLE_GEMINI_MODEL || "gemini-1.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      const message = data?.error?.message || "Upstream error";
-      return NextResponse.json({ error: message }, { status: res.status });
-    }
-    return NextResponse.json(data);
+    return NextResponse.json({ reply: text });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Gemini API error:", err);
+    return NextResponse.json({ error: "Failed to fetch Gemini response" }, { status: 500 });
   }
 }
-
-

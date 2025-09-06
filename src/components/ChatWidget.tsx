@@ -24,6 +24,7 @@ export default function ChatWidget() {
 
   async function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
+    if (isLoading) return;
     const text = input.trim();
     if (!text) return;
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", text };
@@ -37,11 +38,19 @@ export default function ChatWidget() {
         body: JSON.stringify({ prompt: text }),
       });
       const data = await res.json();
-      const replyText = data.text ?? data.candidates?.[0]?.content?.parts?.[0]?.text ?? "(No response)";
+      if (!res.ok) {
+        const message = data?.error || "Chat request failed";
+        throw new Error(message);
+      }
+      const replyText =
+        data.reply ??
+        data.text ??
+        data.candidates?.[0]?.content?.parts?.[0]?.text ??
+        "(No response)";
       const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: replyText };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
-      const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: "Sorry, something went wrong." };
+      const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: err instanceof Error ? err.message : "Sorry, something went wrong." };
       setMessages((prev) => [...prev, botMsg]);
     } finally {
       setIsLoading(false);
