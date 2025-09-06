@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaGoogle, FaFacebookF } from "react-icons/fa";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { FaGoogle, FaFacebookF } from "react-icons/fa";
 import { useUser } from "@/contexts/UserContext";
 
 export default function SignInPage() {
@@ -17,8 +17,8 @@ export default function SignInPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
+    setIsLoading(true);
     
     try {
       const supabase = getSupabaseClient();

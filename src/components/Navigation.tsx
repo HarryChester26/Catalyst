@@ -1,12 +1,39 @@
 "use client";
 
 import Link from 'next/link';
-import { useUser } from '@/contexts/UserContext';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { User, LogIn, LogOut } from 'lucide-react';
+import { AlertCircle, Route, User, LogIn, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 export default function Navigation() {
-  const { user, isAuthenticated, signOut } = useUser();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setEmail(data.session?.user?.email ?? null);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
+      setEmail(session?.user?.email ?? null);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const navItems = [
+    { href: '/disruptions', label: 'Disruptions', icon: AlertCircle },
+    { href: '/trip-planner', label: 'Trip Planner', icon: Route },
+    { href: '/profile', label: 'Profile', icon: User },
+  ];
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -15,44 +42,98 @@ export default function Navigation() {
           <Link href="/" className="text-2xl font-bold text-blue-600">
             Smart PT
           </Link>
-          
-          <div className="flex items-center gap-4">
-            <Link href="/disruptions" className="text-gray-600 hover:text-gray-900">
-              Disruptions
-            </Link>
-            <Link href="/trip-planner" className="text-gray-600 hover:text-gray-900">
-              Trip Planner
-            </Link>
-            <Link href="/profile" className="text-gray-600 hover:text-gray-900">
-              Profile
-            </Link>
-            
-            {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <User className="h-4 w-4" />
-                  <span>{user?.email}</span>
-                </div>
-                <Button variant="outline" size="sm" onClick={signOut}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
+
+          <div className="hidden md:flex items-center space-x-8">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {email ? (
+              <div className="relative">
+                <button
+                  onClick={() => setOpenMenu(v => !v)}
+                  className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu}
+                >
+                  {(email[0] || 'U').toUpperCase()}
+                </button>
+                {openMenu && (
+                  <div className="absolute right-0 mt-2 w-40 rounded-md border bg-white shadow-md z-50">
+                    <div className="px-3 py-2 text-xs text-gray-500 truncate">{email}</div>
+                    <button
+                      onClick={() => { setOpenMenu(false); router.push('/profile'); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={async () => { setOpenMenu(false); await getSupabaseClient().auth.signOut(); router.replace('/signin'); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <>
                 <Link href="/signin">
-                  <Button variant="outline" size="sm">
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Sign In
+                  <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                    <LogIn className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign In</span>
                   </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button size="sm">
-                    Sign Up
+                  <Button size="sm" className="flex items-center space-x-2">
+                    <UserPlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sign Up</span>
                   </Button>
                 </Link>
-              </div>
+              </>
             )}
+          </div>
+        </div>
+
+        <div className="md:hidden border-t border-gray-200 py-2">
+          <div className="flex space-x-4">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
