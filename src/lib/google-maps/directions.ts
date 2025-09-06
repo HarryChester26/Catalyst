@@ -113,6 +113,7 @@ export interface RouteOptions {
   optimizeWaypoints?: boolean;
   departureTime?: Date;
   arrivalTime?: Date;
+  transitOptions?: google.maps.TransitOptions;
 }
 
 export class DirectionsService {
@@ -191,11 +192,11 @@ export class DirectionsService {
               end_address: leg.end_address,
               departure_time: leg.departure_time ? {
                 text: leg.departure_time.text,
-                value: leg.departure_time.value,
+                value: leg.departure_time.value.getTime(),
               } : undefined,
               arrival_time: leg.arrival_time ? {
                 text: leg.arrival_time.text,
-                value: leg.arrival_time.value,
+                value: leg.arrival_time.value.getTime(),
               } : undefined,
               steps: leg.steps.map(step => ({
                 distance: {
@@ -208,13 +209,13 @@ export class DirectionsService {
                 },
                 html_instructions: step.instructions || '',
                 travel_mode: step.travel_mode,
-                departure_time: step.departure_time ? {
-                  text: step.departure_time.text,
-                  value: step.departure_time.value,
+                departure_time: step.transit?.departure_time ? {
+                  text: step.transit.departure_time.text,
+                  value: step.transit.departure_time.value.getTime(),
                 } : undefined,
-                arrival_time: step.arrival_time ? {
-                  text: step.arrival_time.text,
-                  value: step.arrival_time.value,
+                arrival_time: step.transit?.arrival_time ? {
+                  text: step.transit.arrival_time.text,
+                  value: step.transit.arrival_time.value.getTime(),
                 } : undefined,
                 transit_details: step.transit ? {
                   line: {
@@ -250,9 +251,7 @@ export class DirectionsService {
                 } : undefined,
               })),
             })),
-            overview_polyline: {
-              points: route.overview_polyline?.points || '',
-            },
+            overview_polyline: route.overview_polyline?.points || '',
             summary: route.summary || '',
             warnings: route.warnings || [],
             waypoint_order: route.waypoint_order || [],
@@ -271,7 +270,7 @@ export class DirectionsService {
     destination: string | google.maps.LatLng,
     options: Partial<RouteOptions> = {}
   ): Promise<RouteResult[]> {
-    // Calculate different route variations with different preferences
+    // Calculate different route variations with different preferences to match Google Maps recommendations
     const routeOptions = [
       { 
         ...options, 
@@ -284,7 +283,7 @@ export class DirectionsService {
       },
       { 
         ...options, 
-        avoidTolls: true, 
+        avoidTolls: false, 
         avoidHighways: false,
         transitOptions: {
           modes: [google.maps.TransitMode.TRAIN, google.maps.TransitMode.TRAM, google.maps.TransitMode.SUBWAY],
@@ -294,7 +293,7 @@ export class DirectionsService {
       { 
         ...options, 
         avoidTolls: false, 
-        avoidHighways: true,
+        avoidHighways: false,
         transitOptions: {
           modes: [google.maps.TransitMode.BUS, google.maps.TransitMode.TRAM],
           routingPreference: google.maps.TransitRoutePreference.LESS_WALKING
@@ -303,6 +302,7 @@ export class DirectionsService {
     ];
 
     const routes: RouteResult[] = [];
+    const seenRoutes = new Set<string>();
     
     for (const option of routeOptions) {
       try {
@@ -312,13 +312,19 @@ export class DirectionsService {
           ...option,
         });
         if (route) {
-          routes.push(route);
+          // Create a unique identifier for the route to avoid duplicates
+          const routeId = `${route.summary}-${route.duration.value}-${route.distance.value}`;
+          if (!seenRoutes.has(routeId)) {
+            seenRoutes.add(routeId);
+            routes.push(route);
+          }
         }
       } catch (error) {
         console.warn('Failed to calculate route:', error);
       }
     }
 
-    return routes;
+    // Sort routes by duration (fastest first)
+    return routes.sort((a, b) => a.duration.value - b.duration.value);
   }
 }

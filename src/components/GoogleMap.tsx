@@ -81,22 +81,23 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
           suppressMarkers: false,
           polylineOptions: {
             strokeColor: '#1976D2',
-            strokeWeight: 4,
-            strokeOpacity: 0.8
+            strokeWeight: 5,
+            strokeOpacity: 0.9
           },
           markerOptions: {
             icon: {
               url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="10" fill="#1976D2" stroke="white" stroke-width="2"/>
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white"/>
-                  <circle cx="12" cy="9" r="3" fill="#1976D2"/>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="10" cy="10" r="8" fill="#1976D2" stroke="white" stroke-width="2"/>
+                  <circle cx="10" cy="10" r="3" fill="white"/>
                 </svg>
               `),
-              scaledSize: new google.maps.Size(24, 24),
-              anchor: new google.maps.Point(12, 12)
+              scaledSize: new google.maps.Size(20, 20),
+              anchor: new google.maps.Point(10, 10)
             }
-          }
+          },
+          suppressInfoWindows: false,
+          preserveViewport: false
         });
         directionsRenderer.current.setMap(mapInstance.current);
 
@@ -124,7 +125,7 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
   // Display the selected route on the map
   useEffect(() => {
     if (selectedRoute && directionsRenderer.current && mapInstance.current && fromPlace && toPlace) {
-      // Calculate route using the directions service
+      // Calculate route using the directions service to get the actual route for display
       if (directionsService) {
         const routeOptions: RouteOptions = {
           origin: fromPlace.formatted_address,
@@ -137,8 +138,12 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
         };
 
         directionsService.calculateRoute(routeOptions).then((route) => {
-          if (route) {
-            // Create a mock DirectionsResult for display
+          if (route && directionsRenderer.current) {
+            // Create a proper DirectionsResult for display
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(new google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng));
+            bounds.extend(new google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng));
+
             const directionsResult: google.maps.DirectionsResult = {
               routes: [{
                 legs: route.legs.map(leg => ({
@@ -156,23 +161,75 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
                     travel_mode: step.travel_mode as google.maps.TravelMode,
                     start_location: new google.maps.LatLng(0, 0),
                     end_location: new google.maps.LatLng(0, 0),
+                    encoded_lat_lngs: [],
+                    end_point: new google.maps.LatLng(0, 0),
+                    lat_lngs: [],
+                    maneuver: '',
+                    start_point: new google.maps.LatLng(0, 0),
+                    transit: step.transit_details ? {
+                      line: {
+                        name: step.transit_details.line.name,
+                        short_name: step.transit_details.line.short_name,
+                        color: step.transit_details.line.color,
+                        text_color: step.transit_details.line.text_color,
+                      },
+                      departure_stop: {
+                        name: step.transit_details.departure_stop.name,
+                        location: new google.maps.LatLng(
+                          step.transit_details.departure_stop.location.lat,
+                          step.transit_details.departure_stop.location.lng
+                        ),
+                      },
+                      arrival_stop: {
+                        name: step.transit_details.arrival_stop.name,
+                        location: new google.maps.LatLng(
+                          step.transit_details.arrival_stop.location.lat,
+                          step.transit_details.arrival_stop.location.lng
+                        ),
+                      },
+                      departure_time: step.transit_details.departure_time,
+                      arrival_time: step.transit_details.arrival_time,
+                      headsign: step.transit_details.headsign,
+                      num_stops: step.transit_details.num_stops,
+                    } : undefined,
                   })),
-                })),
+                  traffic_speed_entry: [],
+                  via_waypoints: [],
+                } as google.maps.DirectionsLeg)),
                 overview_polyline: selectedRoute.overview_polyline.points,
                 summary: selectedRoute.summary,
                 warnings: selectedRoute.warnings,
                 waypoint_order: selectedRoute.waypoint_order,
+                bounds: bounds,
+                copyrights: 'Google',
+                overview_path: [],
               }],
               request: {} as google.maps.DirectionsRequest,
               geocoded_waypoints: [],
             };
 
-            directionsRenderer.current!.setDirections(directionsResult);
+            // Set the directions on the renderer to display the route
+            directionsRenderer.current.setDirections(directionsResult);
+            
+            // Fit the map to show the entire route
+            if (mapInstance.current) {
+              const bounds = new google.maps.LatLngBounds();
+              bounds.extend(new google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng));
+              bounds.extend(new google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng));
+              mapInstance.current.fitBounds(bounds);
+            }
           }
         }).catch((error) => {
           console.error('Error calculating route for map:', error);
         });
       }
+    } else if (!selectedRoute && directionsRenderer.current) {
+      // Clear the route when no route is selected
+      directionsRenderer.current.setDirections({ 
+        routes: [],
+        request: {} as google.maps.DirectionsRequest,
+        geocoded_waypoints: []
+      } as google.maps.DirectionsResult);
     }
   }, [selectedRoute, fromPlace, toPlace, directionsService]);
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Route, MapPin, Clock, Navigation, Bus } from "lucide-react";
+import { Route, MapPin, Clock, Navigation, Bus, AlertCircle } from "lucide-react";
 import GoogleMap from "@/components/GoogleMap";
 import QuickAddressInput from "@/components/QuickAddressInput";
 import DateTimePicker from "@/components/DateTimePicker";
@@ -28,6 +28,7 @@ export default function TripPlannerPage() {
   const [routes, setRoutes] = useState<RouteResult[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<RouteResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleFromPlaceSelect = (place: GeocodeResult) => {
     setFromPlace(place);
@@ -71,6 +72,7 @@ export default function TripPlannerPage() {
     setError(null);
     setRoutes([]);
     setSelectedRoute(null);
+    setHasSearched(true);
 
     try {
       const { DirectionsService } = await import("@/lib/google-maps/directions");
@@ -115,6 +117,7 @@ export default function TripPlannerPage() {
         </div>
 
         <div className="grid gap-6">
+          {/* Input Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -166,62 +169,98 @@ export default function TripPlannerPage() {
             </CardContent>
           </Card>
 
-          {routes.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Route Map
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="h-96">
-                    <GoogleMap
-                      selectedRoute={selectedRoute}
-                      onRouteSelect={handleRouteSelect}
-                      fromPlace={fromPlace}
-                      toPlace={toPlace}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Always Show Map and Route Results */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Map - Always Visible */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Route Map
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-96">
+                  <GoogleMap
+                    selectedRoute={selectedRoute}
+                    onRouteSelect={handleRouteSelect}
+                    fromPlace={fromPlace}
+                    toPlace={toPlace}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-              <div>
+            {/* Route Results or Messages */}
+            <div>
+              {isPlanning && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <h3 className="text-lg font-semibold mb-2">Finding Routes...</h3>
+                    <p className="text-gray-600">Searching for the best public transport options</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {hasSearched && routes.length === 0 && !isPlanning && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                    <h3 className="text-lg font-semibold mb-2 text-red-600">No Public Transport Routes Found</h3>
+                    <p className="text-gray-600 mb-4">
+                      We couldn't find any public transport routes between these locations. 
+                      Try adjusting your departure time or check if the locations are accessible by public transport.
+                    </p>
+                    <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>Try different time</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>Check locations</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {routes.length > 0 && (
                 <RouteOptions
                   routes={routes}
                   onRouteSelect={handleRouteSelect}
                   selectedRoute={selectedRoute}
                 />
-              </div>
-            </div>
-          )}
+              )}
 
-          {routes.length === 0 && !isPlanning && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Navigation className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-semibold mb-2">Ready to Plan Your Public Transport Trip?</h3>
-                <p className="text-gray-600 mb-4">
-                  Enter your starting location and destination to find the best public transport routes.
-                </p>
-                <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <Bus className="h-4 w-4" />
-                    <span>Buses & Trains</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>Real-time schedules</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Route className="h-4 w-4" />
-                    <span>Multiple route options</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {!hasSearched && !isPlanning && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Navigation className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-semibold mb-2">Ready to Plan Your Public Transport Trip?</h3>
+                    <p className="text-gray-600 mb-4">
+                      Enter your starting location and destination to find the best public transport routes.
+                    </p>
+                    <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Bus className="h-4 w-4" />
+                        <span>Buses & Trains</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>Real-time schedules</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Route className="h-4 w-4" />
+                        <span>Multiple route options</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

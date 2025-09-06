@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RouteResult } from '@/lib/google-maps/directions';
-import { Clock, MapPin, Bus, Train, Tram, Subway, Route, Footprints, ArrowRight } from 'lucide-react';
+import { Clock, MapPin, Bus, Train, Route, Footprints, ArrowRight, Car } from 'lucide-react';
 
 interface RouteOptionsProps {
   routes: RouteResult[];
@@ -18,8 +18,8 @@ export default function RouteOptions({ routes, onRouteSelect, selectedRoute }: R
 
   const getRouteType = (route: RouteResult, index: number) => {
     if (index === 0) return { label: 'Fastest', color: 'bg-green-100 text-green-800' };
-    if (route.summary.toLowerCase().includes('fewer transfers')) return { label: 'Fewer Transfers', color: 'bg-blue-100 text-blue-800' };
-    if (route.summary.toLowerCase().includes('walking')) return { label: 'Less Walking', color: 'bg-yellow-100 text-yellow-800' };
+    if (index === 1) return { label: 'Fewer Transfers', color: 'bg-blue-100 text-blue-800' };
+    if (index === 2) return { label: 'Less Walking', color: 'bg-yellow-100 text-yellow-800' };
     return { label: 'Alternative', color: 'bg-gray-100 text-gray-800' };
   };
 
@@ -43,9 +43,9 @@ export default function RouteOptions({ routes, onRouteSelect, selectedRoute }: R
       case 'train':
         return <Train className="h-4 w-4" />;
       case 'tram':
-        return <Tram className="h-4 w-4" />;
+        return <Car className="h-4 w-4" />;
       case 'subway':
-        return <Subway className="h-4 w-4" />;
+        return <Train className="h-4 w-4" />;
       case 'walking':
         return <Footprints className="h-4 w-4" />;
       default:
@@ -115,8 +115,8 @@ export default function RouteOptions({ routes, onRouteSelect, selectedRoute }: R
         return (
           <Card 
             key={index} 
-            className={`hover:shadow-md transition-shadow cursor-pointer ${
-              isSelected ? 'ring-2 ring-blue-500' : ''
+            className={`hover:shadow-md transition-all cursor-pointer ${
+              isSelected ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
             }`}
             onClick={() => onRouteSelect(route)}
           >
