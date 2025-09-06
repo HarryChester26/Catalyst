@@ -1,16 +1,22 @@
 "use client";
 
 import { MdTram } from "react-icons/md";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, MapPin, Clock, Users, Plus, X } from "lucide-react";
+import { AlertCircle, MapPin, Clock, Users, Plus, X, RefreshCw } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { 
+  DisruptionReportWithUser, 
+  DisruptionFormData, 
+  DISRUPTION_TYPES, 
+  DISRUPTION_SEVERITIES 
+} from "@/types/disruption";
 
+// Legacy interface for backward compatibility - will be removed
 interface Disruption {
   id: string;
   route: string;
@@ -26,22 +32,15 @@ interface Disruption {
   createdAt?: string;
 }
 
-interface ReportFormData {
-  route: string;
-  location: string;
-  type: string;
-  severity: string;
-  description: string;
-}
-
 export default function DisruptionsPage() {
   const { user, isAuthenticated } = useUser();
   const [showReportForm, setShowReportForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [formData, setFormData] = useState<ReportFormData>({
+  const [formData, setFormData] = useState<DisruptionFormData>({
     route: "",
     location: "",
     type: "",
@@ -49,45 +48,129 @@ export default function DisruptionsPage() {
     description: ""
   });
 
-  // Convert disruptions to state so we can update the UI
-  const [disruptions, setDisruptions] = useState<Disruption[]>([
-    {
-      id: "1",
-      route: "86",
-      location: "Bourke St / Swanston St",
-      type: "delay",
-      severity: "high",
-      description: "Tram stuck behind broken down car, significant delays expected",
-      reportedBy: "Sarah M.",
-      timeAgo: "5 min ago",
-      confirmations: 12,
-      status: "active"
-    },
-    {
-      id: "2",
-      route: "19",
-      location: "Elizabeth St / Flinders St",
-      type: "service_change",
-      severity: "medium",
-      description: "Route 19 experiencing minor delays due to roadworks",
-      reportedBy: "Mike T.",
-      timeAgo: "15 min ago",
-      confirmations: 8,
-      status: "active"
-    },
-    {
-      id: "3",
-      route: "96",
-      location: "St Kilda Beach",
-      type: "cancellation",
-      severity: "high",
-      description: "Service suspended due to track maintenance",
-      reportedBy: "PTV Official",
-      timeAgo: "1 hour ago",
-      confirmations: 25,
-      status: "resolved"
+  // Database disruptions state
+  const [disruptions, setDisruptions] = useState<DisruptionReportWithUser[]>([]);
+
+  // Fetch disruptions from database
+  const fetchDisruptions = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Fetching disruptions from API...');
+      
+      const response = await fetch('/api/disruptions');
+      console.log('API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API error response:', errorData);
+        throw new Error(errorData.error || `Failed to fetch disruptions (${response.status})`);
+      }
+      
+      const data = await response.json();
+      console.log('API response data:', data);
+      
+      // Group disruptions by route and location to show confirmations
+      const groupedDisruptions = data.disruptions.reduce((acc: any, disruption: DisruptionReportWithUser) => {
+        const key = `${disruption.route_number}-${disruption.location}`;
+        
+        if (!acc[key]) {
+          acc[key] = {
+            ...disruption,
+            confirmations: 1,
+            status: 'active'
+          };
+        } else {
+          acc[key].confirmations += 1;
+          // Update to higher severity if needed
+          const severityLevels = { low: 1, medium: 2, high: 3 };
+          const currentLevel = severityLevels[acc[key].severity as keyof typeof severityLevels] || 1;
+          const newLevel = severityLevels[disruption.severity as keyof typeof severityLevels] || 1;
+          
+          if (newLevel > currentLevel) {
+            acc[key].severity = disruption.severity;
+          }
+          
+          // Update description if longer
+          if (disruption.description.length > acc[key].description.length) {
+            acc[key].description = disruption.description;
+          }
+        }
+        
+        return acc;
+      }, {});
+      
+      const processedDisruptions = Object.values(groupedDisruptions).map((disruption: any) => ({
+        ...disruption,
+        time_ago: getTimeAgo(disruption.created_at)
+      }));
+      
+      setDisruptions(processedDisruptions);
+    } catch (error) {
+      console.error('Error fetching disruptions:', error);
+      setDisruptions([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  // Helper function to calculate time ago
+  const getTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  // Check database status and load disruptions on component mount
+  useEffect(() => {
+    checkDatabaseStatus();
+  }, []);
+
+  // Suppress ResizeObserver warnings
+  useEffect(() => {
+    const originalError = console.error;
+    console.error = (...args) => {
+      if (typeof args[0] === 'string' && args[0].includes('ResizeObserver loop completed with undelivered notifications')) {
+        return;
+      }
+      originalError.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalError;
+    };
+  }, []);
+
+  // Check if database is set up properly
+  const checkDatabaseStatus = async () => {
+    try {
+      const response = await fetch('/api/disruptions/status');
+      const status = await response.json();
+      
+      console.log('Database status:', status);
+      
+      if (status.status === 'ready') {
+        console.log('Database is ready, fetching disruptions...');
+        await fetchDisruptions();
+      } else {
+        console.log('Database not ready, showing empty state');
+        setDisruptions([]);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error checking database status:', error);
+      setDisruptions([]);
+      setIsLoading(false);
+    }
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -122,7 +205,7 @@ export default function DisruptionsPage() {
     setSubmitSuccess(false);
 
     try {
-      if (!isAuthenticated) {
+      if (!isAuthenticated || !user?.id) {
         throw new Error("You must be signed in to report disruptions");
       }
 
@@ -131,59 +214,32 @@ export default function DisruptionsPage() {
         throw new Error("Please fill in all required fields");
       }
 
-      // Check if there's already a disruption for the same route and location
-      setDisruptions(prevDisruptions => {
-        const existingDisruptionIndex = prevDisruptions.findIndex(
-          disruption =>
-            disruption.route.toLowerCase() === formData.route.toLowerCase() &&
-            disruption.location.toLowerCase() === formData.location.toLowerCase() &&
-            disruption.status === "active"
-        );
-
-        if (existingDisruptionIndex !== -1) {
-          // Update existing disruption - increase confirmations
-          const updatedDisruptions = [...prevDisruptions];
-          const existingDisruption = updatedDisruptions[existingDisruptionIndex];
-
-          updatedDisruptions[existingDisruptionIndex] = {
-            ...existingDisruption,
-            confirmations: existingDisruption.confirmations + 1,
-            // Update severity if the new report has higher severity
-            severity: getHigherSeverity(existingDisruption.severity, formData.severity),
-            // Update description if the new one is more detailed (longer)
-            description: formData.description.length > existingDisruption.description.length
-              ? formData.description
-              : existingDisruption.description,
-            timeAgo: "Just now" // Update timestamp to show recent activity
-          };
-
-          console.log("Updated existing disruption with new confirmation:", updatedDisruptions[existingDisruptionIndex]);
-          setSuccessMessage("✅ Confirmation added to existing disruption!");
-          return updatedDisruptions;
-        } else {
-          // Create new disruption report
-          const newDisruption: Disruption = {
-            id: Date.now().toString(),
-            route: formData.route,
+      // Submit to database API
+      const response = await fetch('/api/disruptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          route_number: formData.route,
             location: formData.location,
-            type: formData.type,
             severity: formData.severity,
             description: formData.description,
-            reportedBy: user?.email?.split('@')[0] || "Anonymous",
-            reportedByEmail: user?.email,
-            timeAgo: "Just now",
-            confirmations: 1, // Start with 1 confirmation (the reporter)
-            status: "active",
-            createdAt: new Date().toISOString()
-          };
-
-          console.log("New disruption report:", newDisruption);
-          setSuccessMessage("✅ New disruption report submitted successfully!");
-          return [newDisruption, ...prevDisruptions]; // Add to the top of the list
-        }
+          disruption: formData.type,
+          user_id: user.id
+        }),
       });
 
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit disruption report');
+      }
+
       setSubmitSuccess(true);
+      setSuccessMessage("✅ Disruption report submitted successfully!");
+      
+      // Reset form
       setFormData({
         route: "",
         location: "",
@@ -191,6 +247,9 @@ export default function DisruptionsPage() {
         severity: "",
         description: ""
       });
+
+      // Refresh disruptions list
+      await fetchDisruptions();
 
       // Hide form after 2 seconds
       setTimeout(() => {
@@ -206,7 +265,7 @@ export default function DisruptionsPage() {
     }
   };
 
-  const handleInputChange = (field: keyof ReportFormData, value: string) => {
+  const handleInputChange = (field: keyof DisruptionFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -324,51 +383,18 @@ export default function DisruptionsPage() {
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent className="z-[100] shadow-2xl border-2 border-blue-200 bg-white [&[data-state=open]]:animate-none [&[data-state=open]]:transform-none [&[data-state=open]]:opacity-100 [&[data-state=closed]]:animate-none [&[data-state=closed]]:transform-none [&[data-state=closed]]:opacity-0">
-                            <SelectItem
-                              value="delay"
-                              className="hover:bg-blue-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">⏰</span>
-                                <span>Delay</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="cancellation"
-                              className="hover:bg-red-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">❌</span>
-                                <span>Service Cancellation</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="service_change"
-                              className="hover:bg-yellow-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">🔄</span>
-                                <span>Service Change</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="track_work"
-                              className="hover:bg-orange-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">🔧</span>
-                                <span>Track Work</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="other"
-                              className="hover:bg-gray-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">⚠️</span>
-                                <span>Other</span>
-                              </div>
-                            </SelectItem>
+                            {DISRUPTION_TYPES.map((type) => (
+                              <SelectItem
+                                key={type.value}
+                                value={type.value}
+                                className="hover:bg-blue-50 hover:scale-105 transition-all duration-200 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">{type.icon}</span>
+                                  <span>{type.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -381,33 +407,18 @@ export default function DisruptionsPage() {
                             <SelectValue placeholder="Select severity" />
                           </SelectTrigger>
                           <SelectContent className="z-[100] shadow-2xl border-2 border-red-200 bg-white [&[data-state=open]]:animate-none [&[data-state=open]]:transform-none [&[data-state=open]]:opacity-100 [&[data-state=closed]]:animate-none [&[data-state=closed]]:transform-none [&[data-state=closed]]:opacity-0">
-                            <SelectItem
-                              value="low"
-                              className="hover:bg-green-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">🟢</span>
-                                <span>Low Impact</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="medium"
-                              className="hover:bg-yellow-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">🟡</span>
-                                <span>Medium Impact</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem
-                              value="high"
-                              className="hover:bg-red-50 hover:scale-105 transition-all duration-200 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">🔴</span>
-                                <span>High Impact</span>
-                              </div>
-                            </SelectItem>
+                            {DISRUPTION_SEVERITIES.map((severity) => (
+                              <SelectItem
+                                key={severity.value}
+                                value={severity.value}
+                                className={`hover:bg-${severity.color}-50 hover:scale-105 transition-all duration-200 cursor-pointer`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">{severity.icon}</span>
+                                  <span>{severity.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -461,59 +472,87 @@ export default function DisruptionsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Current Disruptions</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Current Disruptions</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchDisruptions}
+                  disabled={isLoading}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {disruptions.map((disruption) => (
-                  <Card
-                    key={disruption.id}
-                    className={`border-l-4 ${disruption.severity === "high" ? "border-l-red-500" :
-                      disruption.severity === "medium" ? "border-l-yellow-500" :
-                        "border-l-green-500"
-                      }`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl">{getTypeIcon(disruption.type)}</div>
-                          <div>
-                            <h4 className="font-medium">Route {disruption.route}</h4>
-                            <p className="text-sm text-gray-600 flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {disruption.location}
-                            </p>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading disruptions...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Database disruptions */}
+                  {disruptions.map((disruption) => (
+                    <Card
+                      key={disruption.id}
+                      className={`border-l-4 ${disruption.severity === "high" ? "border-l-red-500" :
+                        disruption.severity === "medium" ? "border-l-yellow-500" :
+                          "border-l-green-500"
+                        }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl">{getTypeIcon(disruption.disruption)}</div>
+                            <div>
+                              <h4 className="font-medium">Route {disruption.route_number}</h4>
+                              <p className="text-sm text-gray-600 flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {disruption.location}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={getSeverityColor(disruption.severity)}>
+                              {getSeverityLabel(disruption.severity)}
+                            </Badge>
+                            <Badge variant={disruption.status === "active" ? "destructive" : "secondary"}>
+                              {disruption.status}
+                            </Badge>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={getSeverityColor(disruption.severity)}>
-                            {getSeverityLabel(disruption.severity)}
-                          </Badge>
-                          <Badge variant={disruption.status === "active" ? "destructive" : "secondary"}>
-                            {disruption.status}
-                          </Badge>
-                        </div>
-                      </div>
 
-                      <p className="mb-3">{disruption.description}</p>
+                        <p className="mb-3">{disruption.description}</p>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {disruption.timeAgo}
-                          </span>
-                          <span>by {disruption.reportedBy}</span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {disruption.time_ago}
+                            </span>
+                            <span>by {disruption.reported_by}</span>
+                          </div>
+                          <Button variant="outline" size="sm" className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {disruption.confirmations}
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm" className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {disruption.confirmations}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {disruptions.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No disruptions reported yet.</p>
+                      <p className="text-sm">Be the first to report a disruption!</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
