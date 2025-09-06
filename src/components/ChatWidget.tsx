@@ -24,8 +24,27 @@ export default function ChatWidget() {
 
   async function sendMessage(e?: React.FormEvent) {
     e?.preventDefault();
+    if (isLoading) return;
     const text = input.trim();
     if (!text) return;
+    // Extract a lightweight text snapshot of the current page as context
+    const extractPageText = (limit = 6000) => {
+      try {
+        const clone = document.body.cloneNode(true) as HTMLElement;
+        const remove = (sel: string) => clone.querySelectorAll(sel).forEach((el) => el.remove());
+        remove('script, style, noscript');
+        // Optionally strip common layout chrome
+        remove('header, footer, nav');
+        const txt = (clone as HTMLElement).innerText.replace(/\s+/g, ' ').trim();
+        return txt.slice(0, limit);
+      } catch {
+        return '';
+      }
+    };
+    const context = {
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      pageText: extractPageText(),
+    };
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -34,14 +53,22 @@ export default function ChatWidget() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ prompt: text, context }),
       });
       const data = await res.json();
-      const replyText = data.text ?? data.candidates?.[0]?.content?.parts?.[0]?.text ?? "(No response)";
+      if (!res.ok) {
+        const message = data?.error || "Chat request failed";
+        throw new Error(message);
+      }
+      const replyText =
+        data.reply ??
+        data.text ??
+        data.candidates?.[0]?.content?.parts?.[0]?.text ??
+        "(No response)";
       const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: replyText };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
-      const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: "Sorry, something went wrong." };
+      const botMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", text: err instanceof Error ? err.message : "Sorry, something went wrong." };
       setMessages((prev) => [...prev, botMsg]);
     } finally {
       setIsLoading(false);
