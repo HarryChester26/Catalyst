@@ -47,6 +47,8 @@ export default function DisruptionsPage() {
     severity: "",
     description: ""
   });
+  const [inspectorNear, setInspectorNear] = useState(false);
+  const [inspectorReports, setInspectorReports] = useState<Set<string>>(new Set());
 
   // Database disruptions state
   const [disruptions, setDisruptions] = useState<DisruptionReportWithUser[]>([]);
@@ -132,7 +134,29 @@ export default function DisruptionsPage() {
   // Check database status and load disruptions on component mount
   useEffect(() => {
     checkDatabaseStatus();
+    loadInspectorReports();
   }, []);
+
+  // Load inspector reports from localStorage
+  const loadInspectorReports = () => {
+    try {
+      const stored = localStorage.getItem('inspectorReports');
+      if (stored) {
+        setInspectorReports(new Set(JSON.parse(stored)));
+      }
+    } catch (error) {
+      console.error('Error loading inspector reports:', error);
+    }
+  };
+
+  // Save inspector reports to localStorage
+  const saveInspectorReports = (reports: Set<string>) => {
+    try {
+      localStorage.setItem('inspectorReports', JSON.stringify(Array.from(reports)));
+    } catch (error) {
+      console.error('Error saving inspector reports:', error);
+    }
+  };
 
   // Suppress ResizeObserver warnings
   useEffect(() => {
@@ -239,6 +263,15 @@ export default function DisruptionsPage() {
       setSubmitSuccess(true);
       setSuccessMessage("✅ Disruption report submitted successfully!");
       
+      // If inspector was nearby, mark this report
+      if (inspectorNear) {
+        const reportKey = `${formData.route}-${formData.location}-${Date.now()}`;
+        const newInspectorReports = new Set(inspectorReports);
+        newInspectorReports.add(reportKey);
+        setInspectorReports(newInspectorReports);
+        saveInspectorReports(newInspectorReports);
+      }
+      
       // Reset form
       setFormData({
         route: "",
@@ -247,6 +280,7 @@ export default function DisruptionsPage() {
         severity: "",
         description: ""
       });
+      setInspectorNear(false);
 
       // Refresh disruptions list
       await fetchDisruptions();
@@ -279,6 +313,13 @@ export default function DisruptionsPage() {
     const newLevel = severityLevels[newSeverity as keyof typeof severityLevels] || 1;
 
     return newLevel > currentLevel ? newSeverity : current;
+  };
+
+  // Check if a disruption should be highlighted as inspector report
+  const isInspectorReport = (disruption: any): boolean => {
+    // Check if this disruption matches any inspector report
+    const reportKey = `${disruption.route_number}-${disruption.location}`;
+    return Array.from(inspectorReports).some(key => key.startsWith(reportKey));
   };
 
   return (
@@ -338,6 +379,14 @@ export default function DisruptionsPage() {
                   {submitSuccess && (
                     <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded">
                       {successMessage}
+                    </div>
+                  )}
+
+                  {inspectorNear && (
+                    <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-medium">⚠️ Inspector Alert:</span>
+                      <span>This report will be flagged as having an inspector nearby for priority handling.</span>
                     </div>
                   )}
 
@@ -437,6 +486,19 @@ export default function DisruptionsPage() {
                       />
                     </div>
 
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="inspectorNear"
+                        checked={inspectorNear}
+                        onChange={(e) => setInspectorNear(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="inspectorNear" className="text-sm font-medium text-gray-700">
+                        Inspector is nearby
+                      </label>
+                    </div>
+
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span>Reporting as:</span>
                       <span className="font-medium">{user?.email}</span>
@@ -498,7 +560,8 @@ export default function DisruptionsPage() {
                   {disruptions.map((disruption) => (
                     <Card
                       key={disruption.id}
-                      className={`border-l-4 ${disruption.severity === "high" ? "border-l-red-500" :
+                      className={`border-l-4 ${isInspectorReport(disruption) ? "border-l-red-600 bg-red-50" :
+                        disruption.severity === "high" ? "border-l-red-500" :
                         disruption.severity === "medium" ? "border-l-yellow-500" :
                           "border-l-green-500"
                         }`}
@@ -508,7 +571,15 @@ export default function DisruptionsPage() {
                           <div className="flex items-center gap-3">
                             <div className="text-2xl">{getTypeIcon(disruption.disruption)}</div>
                             <div>
-                              <h4 className="font-medium">Route {disruption.route_number}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">Route {disruption.route_number}</h4>
+                                {isInspectorReport(disruption) && (
+                                  <div className="flex items-center gap-1 text-red-600">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                    <span className="text-xs font-medium">Inspector Nearby</span>
+                                  </div>
+                                )}
+                              </div>
                               <p className="text-sm text-gray-600 flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
                                 {disruption.location}
