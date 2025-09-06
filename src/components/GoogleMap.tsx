@@ -125,113 +125,39 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
   // Display the selected route on the map
   useEffect(() => {
     if (selectedRoute && directionsRenderer.current && mapInstance.current && fromPlace && toPlace) {
-      // Calculate route using the directions service to get the actual route for display
-      if (directionsService) {
+      // Dùng trực tiếp DirectionsService của Google Maps để lấy DirectionsResult
+      if (window.google?.maps) {
+        const directionsService = new window.google.maps.DirectionsService();
         const routeOptions: RouteOptions = {
           origin: fromPlace.formatted_address,
           destination: toPlace.formatted_address,
-          travelMode: google.maps.TravelMode.TRANSIT,
+          travelMode: window.google.maps.TravelMode.TRANSIT,
           transitOptions: {
-            modes: [google.maps.TransitMode.BUS, google.maps.TransitMode.TRAIN, google.maps.TransitMode.TRAM, google.maps.TransitMode.SUBWAY],
-            routingPreference: google.maps.TransitRoutePreference.FEWER_TRANSFERS
+            modes: [window.google.maps.TransitMode.BUS, window.google.maps.TransitMode.TRAIN, window.google.maps.TransitMode.TRAM, window.google.maps.TransitMode.SUBWAY],
+            routingPreference: window.google.maps.TransitRoutePreference.FEWER_TRANSFERS
           }
         };
-
-        directionsService.calculateRoute(routeOptions).then((route) => {
-          if (route && directionsRenderer.current) {
-            // Create a proper DirectionsResult for display
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(new google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng));
-            bounds.extend(new google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng));
-
-            const directionsResult: google.maps.DirectionsResult = {
-              routes: [{
-                legs: route.legs.map(leg => ({
-                  distance: leg.distance,
-                  duration: leg.duration,
-                  duration_in_traffic: leg.duration_in_traffic,
-                  start_address: leg.start_address,
-                  end_address: leg.end_address,
-                  start_location: new google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng),
-                  end_location: new google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng),
-                  steps: leg.steps.map(step => ({
-                    distance: step.distance,
-                    duration: step.duration,
-                    instructions: step.html_instructions,
-                    travel_mode: step.travel_mode as google.maps.TravelMode,
-                    start_location: new google.maps.LatLng(0, 0),
-                    end_location: new google.maps.LatLng(0, 0),
-                    encoded_lat_lngs: [],
-                    end_point: new google.maps.LatLng(0, 0),
-                    lat_lngs: [],
-                    maneuver: '',
-                    start_point: new google.maps.LatLng(0, 0),
-                    transit: step.transit_details ? {
-                      line: {
-                        name: step.transit_details.line.name,
-                        short_name: step.transit_details.line.short_name,
-                        color: step.transit_details.line.color,
-                        text_color: step.transit_details.line.text_color,
-                      },
-                      departure_stop: {
-                        name: step.transit_details.departure_stop.name,
-                        location: new google.maps.LatLng(
-                          step.transit_details.departure_stop.location.lat,
-                          step.transit_details.departure_stop.location.lng
-                        ),
-                      },
-                      arrival_stop: {
-                        name: step.transit_details.arrival_stop.name,
-                        location: new google.maps.LatLng(
-                          step.transit_details.arrival_stop.location.lat,
-                          step.transit_details.arrival_stop.location.lng
-                        ),
-                      },
-                      departure_time: step.transit_details.departure_time,
-                      arrival_time: step.transit_details.arrival_time,
-                      headsign: step.transit_details.headsign,
-                      num_stops: step.transit_details.num_stops,
-                    } : undefined,
-                  })),
-                  traffic_speed_entry: [],
-                  via_waypoints: [],
-                } as google.maps.DirectionsLeg)),
-                overview_polyline: selectedRoute.overview_polyline.points,
-                summary: selectedRoute.summary,
-                warnings: selectedRoute.warnings,
-                waypoint_order: selectedRoute.waypoint_order,
-                bounds: bounds,
-                copyrights: 'Google',
-                overview_path: [],
-              }],
-              request: {} as google.maps.DirectionsRequest,
-              geocoded_waypoints: [],
-            };
-
-            // Set the directions on the renderer to display the route
-            directionsRenderer.current.setDirections(directionsResult);
-            
-            // Fit the map to show the entire route
-            if (mapInstance.current) {
-              const bounds = new google.maps.LatLngBounds();
-              bounds.extend(new google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng));
-              bounds.extend(new google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng));
-              mapInstance.current.fitBounds(bounds);
-            }
+        directionsService.route(routeOptions as google.maps.DirectionsRequest, (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK && result) {
+            directionsRenderer.current!.setDirections(result);
+            // Fit bounds
+            const bounds = new window.google.maps.LatLngBounds();
+            bounds.extend(new window.google.maps.LatLng(fromPlace.geometry.location.lat, fromPlace.geometry.location.lng));
+            bounds.extend(new window.google.maps.LatLng(toPlace.geometry.location.lat, toPlace.geometry.location.lng));
+            mapInstance.current!.fitBounds(bounds);
+          } else {
+            console.error('Directions API error:', status);
           }
-        }).catch((error) => {
-          console.error('Error calculating route for map:', error);
         });
       }
     } else if (!selectedRoute && directionsRenderer.current) {
-      // Clear the route when no route is selected
       directionsRenderer.current.setDirections({ 
         routes: [],
         request: {} as google.maps.DirectionsRequest,
         geocoded_waypoints: []
       } as google.maps.DirectionsResult);
     }
-  }, [selectedRoute, fromPlace, toPlace, directionsService]);
+  }, [selectedRoute, fromPlace, toPlace]);
 
   return (
     <div className="w-full h-full">

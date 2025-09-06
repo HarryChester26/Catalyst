@@ -30,6 +30,43 @@ export default function TripPlannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+    // Tự động lấy route khi đã chọn đủ fromPlace và toPlace
+    useEffect(() => {
+      const autoPlanTrip = async () => {
+        if (!fromPlace || !toPlace) return;
+        setIsPlanning(true);
+        setError(null);
+        setRoutes([]);
+        setSelectedRoute(null);
+        setHasSearched(true);
+
+        try {
+          const { DirectionsService } = await import("@/lib/google-maps/directions");
+          const directionsService = new DirectionsService();
+          const departureDateTime = getDepartureDateTime();
+          const routeOptions: Partial<RouteOptionsType> = {
+            departureTime: departureDateTime,
+            travelMode: window.google?.maps?.TravelMode?.TRANSIT || 'TRANSIT',
+          };
+          const calculatedRoutes = await directionsService.calculateMultipleRoutes(
+            fromPlace.formatted_address,
+            toPlace.formatted_address,
+            routeOptions
+          );
+          setRoutes(calculatedRoutes);
+          if (calculatedRoutes.length > 0) {
+            setSelectedRoute(calculatedRoutes[0]);
+          }
+        } catch (error) {
+          console.error("Error calculating routes:", error);
+          setError(`Failed to calculate routes: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          setIsPlanning(false);
+        }
+      };
+      autoPlanTrip();
+    }, [fromPlace, toPlace, departureTime]);
+
   const handleFromPlaceSelect = (place: GeocodeResult) => {
     setFromPlace(place);
     setFromLocation(place.formatted_address);
