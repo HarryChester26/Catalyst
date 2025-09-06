@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ export default function AppPage() {
       userReports: 12
     },
     {
-      id: '002', 
+      id: '002',
       route: '3',
       destination: 'Melbourne University',
       occupancy: 80,
@@ -82,7 +83,7 @@ export default function AppPage() {
       ]
     },
     {
-      id: '2', 
+      id: '2',
       routes: ['Walk', '19', '86'],
       duration: '28 min',
       transfers: 1,
@@ -149,7 +150,7 @@ export default function AppPage() {
 
   const handlePlanTrip = async () => {
     if (!fromLocation || !toLocation) return;
-    
+
     setIsPlanning(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
     setTripOptions(mockTripOptions);
@@ -169,13 +170,17 @@ export default function AppPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <LogIn className="h-4 w-4 mr-2" />
-                Sign In
-              </Button>
-              <Button size="sm">
-                Sign Up
-              </Button>
+              <Link href="/signin">
+                <Button variant="outline" size="sm">
+                  <LogIn className="w-full h-12 px-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button size="sm">
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -473,7 +478,7 @@ export default function AppPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-2">From</label>
-                    <Input 
+                    <Input
                       placeholder="Current location or address"
                       value={fromLocation}
                       onChange={(e) => setFromLocation(e.target.value)}
@@ -481,14 +486,14 @@ export default function AppPage() {
                   </div>
                   <div>
                     <label className="block text-sm mb-2">To</label>
-                    <Input 
+                    <Input
                       placeholder="Destination address"
                       value={toLocation}
                       onChange={(e) => setToLocation(e.target.value)}
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-2">Departure Time</label>
@@ -506,9 +511,9 @@ export default function AppPage() {
                     </Select>
                   </div>
                 </div>
-                
-                <Button 
-                  onClick={handlePlanTrip} 
+
+                <Button
+                  onClick={handlePlanTrip}
                   disabled={!fromLocation || !toLocation || isPlanning}
                   className="w-full"
                 >
@@ -521,7 +526,7 @@ export default function AppPage() {
             {tripOptions.length > 0 && (
               <div className="space-y-4">
                 <h3>Trip Options</h3>
-                
+
                 {tripOptions.map((option, index) => (
                   <Card key={option.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
@@ -533,7 +538,7 @@ export default function AppPage() {
                           <span className="font-medium">{option.duration}</span>
                           <span className="text-muted-foreground">• {option.cost}</span>
                         </div>
-                        
+
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">
                             {option.departureTime} → {option.arrivalTime}
