@@ -31,6 +31,7 @@ export default function TripPlannerPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [inspectorMarkers, setInspectorMarkers] = useState<google.maps.Marker[]>([]);
   const [processedReports, setProcessedReports] = useState<Set<string>>(new Set());
+  const [pingedReports, setPingedReports] = useState<Set<string>>(new Set());
 
     // Tự động lấy route khi đã chọn đủ fromPlace và toPlace
     useEffect(() => {
@@ -69,7 +70,26 @@ export default function TripPlannerPage() {
       autoPlanTrip();
     }, [fromPlace, toPlace, departureTime]);
 
-  // Listen for inspector reports and show them on map
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('pingedInspectorReports');
+      if (stored) {
+        const pingedReportsArray = JSON.parse(stored);
+        setPingedReports(new Set(pingedReportsArray));
+      }
+    } catch (error) {
+      console.error('Error loading pinged reports:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pingedInspectorReports', JSON.stringify(Array.from(pingedReports)));
+    } catch (error) {
+      console.error('Error saving pinged reports:', error);
+    }
+  }, [pingedReports]);
+
   useEffect(() => {
     const checkForInspectorReports = () => {
       try {
@@ -77,15 +97,18 @@ export default function TripPlannerPage() {
         if (stored) {
           const inspectorReports = JSON.parse(stored);
           
-          // Check each report to see if it's new
           inspectorReports.forEach((report: string) => {
-            if (!processedReports.has(report)) {
-              // Extract location from the report key (format: "route-location-timestamp")
+            if (!processedReports.has(report) && !pingedReports.has(report)) {
               const parts = report.split('-');
-              if (parts.length >= 2) {
-                const location = parts.slice(1, -1).join(' '); // Remove route and timestamp
-                showInspectorMarker(location);
-                setProcessedReports(prev => new Set([...prev, report]));
+              if (parts.length >= 3) {
+                const timestamp = parseInt(parts[parts.length - 1]);
+                
+                if (isReportRecent(timestamp)) {
+                  const location = parts.slice(1, -1).join(' ');
+                  showInspectorMarker(location);
+                  setProcessedReports(prev => new Set([...prev, report]));
+                  setPingedReports(prev => new Set([...prev, report]));
+                }
               }
             }
           });
@@ -95,14 +118,11 @@ export default function TripPlannerPage() {
       }
     };
 
-    // Check for new inspector reports every 2 seconds
     const interval = setInterval(checkForInspectorReports, 2000);
-    
-    // Also check immediately
     checkForInspectorReports();
 
     return () => clearInterval(interval);
-  }, [processedReports]);
+  }, [processedReports, pingedReports]);
 
   const showInspectorMarker = async (location: string) => {
     if (!window.google?.maps) return;
@@ -145,6 +165,17 @@ export default function TripPlannerPage() {
     } catch (error) {
       console.error('Error showing inspector marker:', error);
     }
+  };
+
+  const isReportRecent = (timestamp: number): boolean => {
+    const now = Date.now();
+    const twoMinutesAgo = now - (2 * 60 * 1000);
+    return timestamp >= twoMinutesAgo;
+  };
+
+  const clearPingedReports = () => {
+    setPingedReports(new Set());
+    localStorage.removeItem('pingedInspectorReports');
   };
 
   const handleFromPlaceSelect = (place: GeocodeResult) => {
@@ -383,6 +414,19 @@ export default function TripPlannerPage() {
           </div>
         </div>
       </div>
+
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={clearPingedReports}
+            variant="outline"
+            size="sm"
+            className="bg-white shadow-lg"
+          >
+            Clear Pinged Reports
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

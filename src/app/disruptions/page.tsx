@@ -15,6 +15,10 @@ import {
   DISRUPTION_TYPES, 
   DISRUPTION_SEVERITIES 
 } from "@/types/disruption";
+import { 
+  autoDeleteExpiredDisruptions, 
+  filterActiveDisruptions
+} from "@/lib/disruption-utils";
 
 // Legacy interface for backward compatibility - will be removed
 interface Disruption {
@@ -52,6 +56,7 @@ export default function DisruptionsPage() {
 
   // Database disruptions state
   const [disruptions, setDisruptions] = useState<DisruptionReportWithUser[]>([]);
+  const [autoDeleteInterval, setAutoDeleteInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Fetch disruptions from database
   const fetchDisruptions = async () => {
@@ -106,7 +111,9 @@ export default function DisruptionsPage() {
         time_ago: getTimeAgo(disruption.created_at)
       }));
       
-      setDisruptions(processedDisruptions);
+      // Filter out expired disruptions (auto-delete logic)
+      const activeDisruptions = filterActiveDisruptions(processedDisruptions);
+      setDisruptions(activeDisruptions);
     } catch (error) {
       console.error('Error fetching disruptions:', error);
       setDisruptions([]);
@@ -131,11 +138,44 @@ export default function DisruptionsPage() {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
+  // Auto-delete expired disruptions
+  const handleAutoDelete = async () => {
+    try {
+      const deletedIds = await autoDeleteExpiredDisruptions(disruptions);
+      if (deletedIds.length > 0) {
+        console.log(`Auto-deleted ${deletedIds.length} expired disruptions`);
+        // Refresh the disruptions list
+        await fetchDisruptions();
+      }
+    } catch (error) {
+      console.error('Error during auto-delete:', error);
+    }
+  };
+
   // Check database status and load disruptions on component mount
   useEffect(() => {
     checkDatabaseStatus();
     loadInspectorReports();
   }, []);
+
+  // Set up auto-delete interval (runs every minute)
+  useEffect(() => {
+    // Clear existing interval
+    if (autoDeleteInterval) {
+      clearInterval(autoDeleteInterval);
+    }
+
+    // Set up new interval to check every minute
+    const interval = setInterval(handleAutoDelete, 60000); // 60 seconds
+    setAutoDeleteInterval(interval);
+
+    // Cleanup on unmount
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [disruptions]); // Re-run when disruptions change
 
   // Load inspector reports from localStorage
   const loadInspectorReports = () => {
