@@ -10,6 +10,8 @@ import DateTimePicker from "@/components/DateTimePicker";
 import RouteOptions from "@/components/RouteOptions";
 import { GeocodeResult } from "@/lib/google-maps/geocoding";
 import { RouteResult, RouteOptions as RouteOptionsType } from "@/lib/google-maps/directions";
+import { DisruptionReportWithUser } from "@/types/disruption";
+import { createInspectorMarkers } from "@/lib/inspector-utils";
 
 // Extend Window interface to include google
 declare global {
@@ -30,8 +32,41 @@ export default function TripPlannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [inspectorMarkers, setInspectorMarkers] = useState<google.maps.Marker[]>([]);
+  const [dbInspectorMarkers, setDbInspectorMarkers] = useState<google.maps.Marker[]>([]);
   const [processedReports, setProcessedReports] = useState<Set<string>>(new Set());
   const [pingedReports, setPingedReports] = useState<Set<string>>(new Set());
+
+  // Fetch inspector reports from database
+  const fetchInspectorReports = async () => {
+    try {
+      const response = await fetch('/api/disruptions');
+      if (response.ok) {
+        const data = await response.json();
+        const disruptions: DisruptionReportWithUser[] = data.disruptions || [];
+        
+        // Create inspector markers from database disruptions
+        if (window.google?.maps) {
+          const markers = createInspectorMarkers(disruptions);
+          setDbInspectorMarkers(markers);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching inspector reports from database:', error);
+    }
+  };
+
+  // Fetch inspector reports on component mount
+  useEffect(() => {
+    const checkGoogleMaps = () => {
+      if (window.google?.maps) {
+        fetchInspectorReports();
+      } else {
+        setTimeout(checkGoogleMaps, 100);
+      }
+    };
+
+    checkGoogleMaps();
+  }, []);
 
     // Tự động lấy route khi đã chọn đủ fromPlace và toPlace
     useEffect(() => {
@@ -336,7 +371,7 @@ export default function TripPlannerPage() {
                     onRouteSelect={handleRouteSelect}
                     fromPlace={fromPlace}
                     toPlace={toPlace}
-                    inspectorMarkers={inspectorMarkers}
+                    inspectorMarkers={[...inspectorMarkers, ...dbInspectorMarkers]}
                   />
                 </div>
               </CardContent>

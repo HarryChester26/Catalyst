@@ -33,6 +33,29 @@ export default function RootLayout({
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geometry`}
           strategy="beforeInteractive"
         />
+        <Script
+          id="resize-observer-error-handler"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Suppress ResizeObserver loop errors
+              const originalError = console.error;
+              console.error = (...args) => {
+                if (args[0] && args[0].includes && args[0].includes('ResizeObserver loop completed with undelivered notifications')) {
+                  return;
+                }
+                originalError.apply(console, args);
+              };
+              
+              // Also handle unhandled promise rejections
+              window.addEventListener('unhandledrejection', (event) => {
+                if (event.reason && event.reason.message && event.reason.message.includes('ResizeObserver loop completed with undelivered notifications')) {
+                  event.preventDefault();
+                }
+              });
+            `,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

@@ -49,9 +49,9 @@ export default function DisruptionsPage() {
     location: "",
     type: "",
     severity: "",
-    description: ""
+    description: "",
+    inspector: false
   });
-  const [inspectorNear, setInspectorNear] = useState(false);
   const [inspectorReports, setInspectorReports] = useState<Set<string>>(new Set());
 
   // Database disruptions state
@@ -290,7 +290,8 @@ export default function DisruptionsPage() {
             severity: formData.severity,
             description: formData.description,
           disruption: formData.type,
-          user_id: user.id
+          user_id: user.id,
+          inspector: formData.inspector
         }),
       });
 
@@ -304,7 +305,7 @@ export default function DisruptionsPage() {
       setSuccessMessage("✅ Disruption report submitted successfully!");
       
       // If inspector was nearby, mark this report
-      if (inspectorNear) {
+      if (formData.inspector) {
         const reportKey = `${formData.route}-${formData.location}-${Date.now()}`;
         const newInspectorReports = new Set(inspectorReports);
         newInspectorReports.add(reportKey);
@@ -318,9 +319,10 @@ export default function DisruptionsPage() {
         location: "",
         type: "",
         severity: "",
-        description: ""
+        description: "",
+        inspector: false
       });
-      setInspectorNear(false);
+      // Inspector state is now part of formData, so no need to reset separately
 
       // Refresh disruptions list
       await fetchDisruptions();
@@ -422,7 +424,7 @@ export default function DisruptionsPage() {
                     </div>
                   )}
 
-                  {inspectorNear && (
+                  {formData.inspector && (
                     <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-center gap-2">
                       <AlertCircle className="h-4 w-4" />
                       <span className="font-medium">⚠️ Inspector Alert:</span>
@@ -530,8 +532,8 @@ export default function DisruptionsPage() {
                       <input
                         type="checkbox"
                         id="inspectorNear"
-                        checked={inspectorNear}
-                        onChange={(e) => setInspectorNear(e.target.checked)}
+                        checked={formData.inspector}
+                        onChange={(e) => setFormData({...formData, inspector: e.target.checked})}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <label htmlFor="inspectorNear" className="text-sm font-medium text-gray-700">

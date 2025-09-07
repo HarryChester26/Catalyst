@@ -167,6 +167,15 @@ export default function GoogleMap({ onRouteSelect, selectedRoute, fromPlace, toP
         marker.setMap(mapInstance.current);
       });
     }
+    
+    // Cleanup function to remove markers when component unmounts or markers change
+    return () => {
+      if (mapInstance.current && inspectorMarkers.length > 0) {
+        inspectorMarkers.forEach(marker => {
+          marker.setMap(null);
+        });
+      }
+    };
   }, [inspectorMarkers]);
 
   return (

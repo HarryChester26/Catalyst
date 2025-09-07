@@ -52,6 +52,7 @@ npm install
 ```
 
 This will install all the required packages including:
+
 - Next.js 15 and React 19
 - Supabase client
 - Google Maps libraries
@@ -67,16 +68,10 @@ This will install all the required packages including:
 Create a `.env.local` file in the root directory and add the following environment variables:
 
 ```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Google Maps API
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-
-# Google Gemini AI API
-GEMINI_API_KEY=your_gemini_api_key
-# Alternative: GOOGLE_API_KEY=your_google_api_key
+NEXT_PUBLIC_SUPABASE_URL=https://tpqnhdoomakryjgqjjmi.supabase.co/
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcW5oZG9vbWFrcnlqZ3Fqam1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNjczMzksImV4cCI6MjA3Mjc0MzMzOX0.76S0b78Gf-ZN_E-uQe8Hc1YmM3UQHeU95QYozO3opGA
+GEMINI_API_KEY=AIzaSyBhPXZXysQL7UvDN_UtwFXplltUPJmVcRY
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyAWE_RIh4Tz742hbfSxe4oYLJLVj1Bk1kY
 ```
 
 #### 4. Run the Development Server
@@ -88,8 +83,9 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
 > ⚠️ **If you skip the `npm install` step**, you'll get errors like:
+>
 > - `Module not found` errors
-> - `Cannot resolve dependency` errors  
+> - `Cannot resolve dependency` errors
 > - The development server won't start
 > - Build will fail
 

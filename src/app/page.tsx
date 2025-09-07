@@ -4,7 +4,44 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Bot, Check } from 'lucide-react';
 import GoogleMap from '@/components/GoogleMap';
+import { useState, useEffect } from 'react';
+import { DisruptionReportWithUser } from '@/types/disruption';
+import { createInspectorMarkers } from '@/lib/inspector-utils';
+
 export default function HomePage() {
+  const [inspectorMarkers, setInspectorMarkers] = useState<google.maps.Marker[]>([]);
+
+  // Fetch disruptions with inspector data
+  useEffect(() => {
+    const fetchInspectorReports = async () => {
+      try {
+        const response = await fetch('/api/disruptions');
+        if (response.ok) {
+          const data = await response.json();
+          const disruptions: DisruptionReportWithUser[] = data.disruptions || [];
+          
+          // Create inspector markers from disruptions
+          if (window.google?.maps) {
+            const markers = createInspectorMarkers(disruptions);
+            setInspectorMarkers(markers);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching inspector reports:', error);
+      }
+    };
+
+    // Wait for Google Maps to load
+    const checkGoogleMaps = () => {
+      if (window.google?.maps) {
+        fetchInspectorReports();
+      } else {
+        setTimeout(checkGoogleMaps, 100);
+      }
+    };
+
+    checkGoogleMaps();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -65,7 +102,7 @@ export default function HomePage() {
           {/* Right side - Google Map */}
           <div className="flex justify-center lg:justify-end">
             <div className="w-full max-w-2xl h-[500px] rounded-2xl shadow-2xl overflow-hidden border-4 border-white">
-              <GoogleMap />
+              <GoogleMap inspectorMarkers={inspectorMarkers} />
             </div>
           </div>
         </div>

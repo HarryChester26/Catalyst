@@ -8,6 +8,7 @@ export interface DatabaseDisruptionReport {
   description: string;
   disruption: 'delay' | 'cancellation' | 'service_change' | 'track_work' | 'other';
   user_id: string;
+  inspector: boolean; // New field to track if inspector is nearby
 }
 
 // Extended disruption report with user information
@@ -26,6 +27,7 @@ export interface DisruptionFormData {
   type: string;
   severity: string;
   description: string;
+  inspector: boolean; // New field for inspector checkbox
 }
 
 // API request/response types
@@ -36,6 +38,7 @@ export interface SubmitDisruptionRequest {
   description: string;
   disruption: string;
   user_id: string;
+  inspector: boolean; // New field for inspector state
 }
 
 export interface SubmitDisruptionResponse {

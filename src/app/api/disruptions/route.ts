@@ -8,6 +8,7 @@ export interface DisruptionReportRequest {
   description: string;
   disruption: string; // This maps to the 'type' field in the form
   user_id: string;
+  inspector: boolean; // New field for inspector state
 }
 
 export interface DisruptionReportResponse {
@@ -19,6 +20,7 @@ export interface DisruptionReportResponse {
   disruption: string;
   created_at: string;
   user_id: string;
+  inspector: boolean; // New field for inspector state
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +33,8 @@ export async function POST(request: NextRequest) {
       severity,
       description,
       disruption,
-      user_id
+      user_id,
+      inspector
     } = body;
 
     // Validate required fields
@@ -100,6 +103,7 @@ export async function POST(request: NextRequest) {
       severity,
       description,
       disruption,
+      inspector: inspector || false, // Default to false if not provided
       created_at: new Date().toISOString()
     };
 
@@ -219,6 +223,7 @@ export async function GET(request: NextRequest) {
       disruption: disruption.disruption || disruption.type || 'other',
       created_at: disruption.created_at || new Date().toISOString(),
       user_id: disruption.user_id || 'anonymous',
+      inspector: disruption.inspector || false, // Include inspector field
       reported_by: 'User', // Generic user name since we can't access auth.users
       reported_by_email: null
     }));
